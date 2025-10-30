@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Resource Booking System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for the grid */
+        .calendar-grid-container {
+            overflow: auto;
+            max-height: calc(100vh - 200px); /* Adjust height as needed */
+            scrollbar-width: thin;
+            scrollbar-color: #9ca3af #e5e7eb;
+        }
+        .calendar-grid-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .calendar-grid-container::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+        }
+        .calendar-grid-container::-webkit-scrollbar-thumb {
+            background-color: #9ca3af;
+            border-radius: 10px;
+            border: 2px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col items-center justify-center bg-gray-100 p-4 md:p-8">
+
+    <div class="w-full max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+        <header class="mb-6 border-b border-gray-200 pb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Resource Booking System</h1>
+            <p class="mt-2 text-sm text-gray-600">Select a resource and week to view and manage bookings.</p>
+            
+            <!-- Auth Status/Login Area -->
+            <div class="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" id="auth-status-container">
+                <div id="user-info-display">
+                    <div class="text-sm text-gray-500">Authentication Required</div>
+                </div>
+                <div id="login-button-container">
+                    <button id="google-signin-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Sign in with School Google Account
+                    </button>
+                    <button id="signout-btn" class="hidden px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-red-600" title="Sign Out">
+                        Sign Out
+                    </button>
+                </div>
+            </div>
+            <!-- End Auth Status/Login Area -->
+            
+        </header>
+
+        <!-- Loading indicator -->
+        <div id="loading" class="text-center py-10">
+            <p class="text-lg text-gray-600">Loading Application...</p>
+        </div>
+
+        <!-- Main Content (Hidden until authenticated) -->
+        <main id="app-content" class="hidden">
+            <!-- Controls -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <!-- Resource Selector -->
+                <div>
+                    <label for="resource-select" class="block text-sm font-medium text-gray-700">Resource</label>
+                    <select id="resource-select" class="mt-1 block w-full md:w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm">
+                        <option value="">Select a resource...</option>
+                    </select>
+                </div>
+
+                <!-- Week Selector -->
+                <div>
+                    <label for="week-start-date" class="block text-sm font-medium text-gray-700">Week of (Select any day)</label>
+                    <input type="date" id="week-start-date" class="mt-1 block w-full md:w-64 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm">
+                </div>
+            </div>
+
+            <!-- Calendar Grid -->
+            <div id="calendar-grid-container" class="calendar-grid-container border border-gray-200 rounded-lg overflow-x-auto">
+                <div class="sticky top-0 bg-gray-50 z-10">
+                    <div class="grid grid-cols-6 min-w-[700px]">
+                        <div class="col-span-1 p-3 border-r border-b border-gray-200 text-sm font-semibold text-gray-700">Time</div>
+                        <div class="col-span-1 p-3 border-r border-b border-gray-200 text-sm font-semibold text-gray-700 text-center" id="header-MON">MON</div>
+                        <div class="col-span-1 p-3 border-r border-b border-gray-200 text-sm font-semibold text-gray-700 text-center" id="header-TUES">TUES</div>
+                        <div class="col-span-1 p-3 border-r border-b border-gray-200 text-sm font-semibold text-gray-700 text-center" id="header-WED">WED</div>
+                        <div class="col-span-1 p-3 border-r border-b border-gray-200 text-sm font-semibold text-gray-700 text-center" id="header-THURS">THURS</div>
+                        <div class="col-span-1 p-3 border-b border-gray-200 text-sm font-semibold text-gray-700 text-center" id="header-FRI">FRI</div>
+                    </div>
+                </div>
+                <div id="calendar-body" class="grid grid-cols-6 min-w-[700px]">
+                    <!-- Rows will be injected by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Admin Panel Toggle -->
+            <div class="mt-6">
+                <button id="toggle-admin" class="text-sm text-indigo-600 hover:text-indigo-800">Manage Resources</button>
+            </div>
+
+            <!-- Admin Panel for adding resources -->
+            <div id="admin-panel" class="hidden mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <h3 class="text-lg font-medium text-gray-900">Manage Resources</h3>
+                <p class="text-sm text-gray-600 mb-4">Add or remove resources available for booking.</p>
+                <div class="flex gap-4">
+                    <input type="text" id="new-resource-name" placeholder="New resource name (e.g. 'Art Room')" class="flex-grow border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm">
+                    <button id="add-resource-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Add Resource
+                    </button>
+                </div>
+                <div id="resource-list" class="mt-4 space-y-2">
+                    <!-- List of resources with delete buttons -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Booking Modal -->
+    <div id="booking-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-800 bg-opacity-75">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4" id="modal-title">Book Slot</h2>
+            <form id="booking-form">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Resource</label>
+                        <p id="modal-resource" class="mt-1 text-lg font-semibold text-gray-800"></p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Date & Time</label>
+                        <p id="modal-datetime" class="mt-1 text-lg font-semibold text-gray-800"></p>
+                    </div>
+                    <div>
+                        <label for="booked-by" class="block text-sm font-medium text-gray-700">Class / Purpose</label>
+                        <input type="text" id="booked-by" placeholder="e.g. '3A IPC' or 'Ms. Smith'" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end gap-4">
+                    <button type="button" id="modal-cancel-btn" class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Cancel
+                    </button>
+                    <button type="submit" id="modal-book-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Book
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Success/Calendar Modal (New) -->
+    <div id="success-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-800 bg-opacity-75">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md text-center">
+            <svg class="mx-auto h-12 w-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <h2 class="text-2xl font-bold text-gray-900 mt-4 mb-2">Booking Confirmed!</h2>
+            <p id="success-message" class="text-gray-600 mb-6">Your appointment has been successfully created.</p>
+            
+            <button id="add-to-calendar-btn" class="w-full px-4 py-3 bg-green-500 text-white font-medium rounded-lg shadow-md hover:bg-green-600 transition duration-150 mb-3">
+                <span class="flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Add to Calendar (.ics)
+                </span>
+            </button>
+            <button id="success-close-btn" class="w-full px-4 py-3 bg-gray-200 text-gray-800 font-medium rounded-lg shadow-sm hover:bg-gray-300 transition duration-150">
+                Close
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-800 bg-opacity-75">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Cancel Booking?</h2>
+            <div id="delete-details" class="text-gray-700 space-y-2 mb-6">
+                <!-- Details injected by JS -->
+            </div>
+            <p class="text-sm text-gray-600">Are you sure you want to cancel this booking?</p>
+            <div class="mt-6 flex justify-end gap-4">
+                <button type="button" id="delete-cancel-btn" class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    No, Keep It
+                </button>
+                <button type="button" id="delete-confirm-btn" class="px-4 py-2 bg-red-600 text-white rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    Yes, Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error/Message Box -->
+    <div id="message-box" class="fixed top-5 right-5 z-50 hidden bg-red-500 text-white py-3 px-5 rounded-lg shadow-lg">
+        <p id="message-text"></p>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // --- Firebase Config ---
+        const FIREBASE_DOMAIN = "@kl.tis.edu.my";
+        
+        // These global variables are provided by the environment
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-booking-app';
+        
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider, 
+            signInWithPopup,    
+            signOut,            
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            addDoc, 
+            deleteDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            where, 
+            Timestamp,
+            writeBatch,
+            getDocs
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Set log level for debugging
+        setLogLevel('debug');
+
+        // --- App State ---
+        let db, auth;
+        let userId = null;
+        let userDisplayName = null; 
+        let userEmail = null;       
+        let currentSelectedResourceId = null;
+        let currentSelectedWeekStart = null;
+        let resources = [];
+        let bookings = [];
+        let allBookingsForWeek = [];
+        let unsubscribeResources = () => {};
+        let unsubscribeBookings = () => {};
+        let lastCreatedBookingData = null; 
+        let isAppListenersSetup = false; // Flag to prevent multiple listener setup
+
+        // --- Constants ---
+        const DAYS = ["MON", "TUES", "WED", "THURS", "FRI"];
+        const TIME_SLOTS = [
+            "7:50 - 8:20", "8:20 - 8:50", "8:50 - 9:20", "9:20 - 9:50", "9:50 - 10:20",
+            "10:20 - 10:50", "10:50 - 11:20", "11:20 - 11:50", "11:50 - 12:20",
+            "12:20 - 1:00", "1:00 - 1:30", "1:30 - 2:00", "2:00 - 2:30", "2:30 - 3:00"
+        ];
+        const TIME_SLOT_DURATIONS = [ 30, 30, 30, 30, 30, 30, 30, 30, 30, 40, 30, 30, 30, 30 ];
+
+        const INITIAL_RESOURCES = [
+            { id: "mipad-01-stephanie", name: "Mipad 01 (Stephanie)" },
+            { id: "ipad-03-cally", name: "ipad 03 (Cally)" },
+            { id: "mipad-02-ey-sandra", name: "Mipad 02 EY (Sandra)" },
+            { id: "ipad-05-shreen", name: "ipad 05 (Shreen)" },
+            { id: "chrome-02-hayati", name: "Chrome 02 (Hayati)" },
+            { id: "chrome-01-shreen", name: "Chrome 01 (Shreen)" },
+            { id: "windows-01-daniela", name: "Windows 01 (Daniela)" },
+            { id: "chrome-03-ting", name: "Chrome 03 (Ting)" },
+            { id: "chrome-04-aishah", name: "Chrome 04 (Aishah)" },
+            { id: "art-room-1st-floor", name: "1st Floor Art Room" },
+            { id: "art-room-2nd-floor", name: "2nd Floor Art Room" },
+            { id: "science-lab-wati", name: "Science Lab (Wati)" }
+        ];
+
+        // --- Firestore Paths ---
+        const resourcesCollectionPath = `artifacts/${appId}/public/data/resources`;
+        const bookingsCollectionPath = `artifacts/${appId}/public/data/bookings`;
+
+        // --- UI Elements ---
+        const loadingEl = document.getElementById("loading");
+        const appContentEl = document.getElementById("app-content");
+        const resourceSelect = document.getElementById("resource-select");
+        const weekStartDateInput = document.getElementById("week-start-date");
+        const calendarBody = document.getElementById("calendar-body");
+        const bookingModal = document.getElementById("booking-modal");
+        const deleteModal = document.getElementById("delete-modal");
+        const successModal = document.getElementById("success-modal"); 
+        const bookedByInput = document.getElementById("booked-by");
+        const modalBookBtn = document.getElementById("modal-book-btn");
+        const modalCancelBtn = document.getElementById("modal-cancel-btn");
+        const userInfoDisplay = document.getElementById("user-info-display");
+        const googleSigninBtn = document.getElementById("google-signin-btn");
+        const signoutBtn = document.getElementById("signout-btn");
+        const addToCalendarBtn = document.getElementById("add-to-calendar-btn");
+
+        // --- Utility Functions ---
+
+        function showMessage(text, isError = true) {
+            const box = document.getElementById("message-box");
+            const textEl = document.getElementById("message-text");
+            
+            textEl.textContent = text;
+            box.className = `fixed top-5 right-5 z-50 py-3 px-5 rounded-lg shadow-lg ${isError ? 'bg-red-600' : 'bg-green-600'} text-white`;
+            
+            box.classList.remove("hidden");
+            setTimeout(() => {
+                box.classList.add("hidden");
+            }, 3000);
+        }
+
+        /**
+         * Gets the Monday of a given date.
+         */
+        function getMonday(d) {
+            d = new Date(d);
+            d.setHours(0, 0, 0, 0); 
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); 
+            return new Date(d.setDate(diff));
+        }
+
+        /**
+         * Formats a Date object to "YYYY-MM-DD" string.
+         */
+        function toYYYYMMDD(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        /**
+         * Gets the date for a specific day of the week from the start date.
+         */
+        function getDateForDay(weekStart, dayIndex) {
+            const startDate = new Date(weekStart + 'T00:00:00'); 
+            startDate.setDate(startDate.getDate() + dayIndex);
+            return startDate;
+        }
+
+        /**
+         * Formats a date for the calendar header.
+         */
+        function formatDayHeader(day, date) {
+            const dayNum = date.getDate();
+            const monthNum = date.getMonth() + 1;
+            return `${day} (${dayNum}/${monthNum})`;
+        }
+
+        // --- Authentication Logic (Google Sign-In) ---
+
+        async function handleGoogleSignIn() {
+            const provider = new GoogleAuthProvider();
+            try {
+                // Force consent to ensure we get the latest ID token/user data
+                provider.setCustomParameters({ prompt: 'select_account' });
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("Google Sign-In Error:", error);
+                
+                let errorMessage = "Sign-in failed. Please try again.";
+                // Check for the specific error code related to unauthorized domains
+                if (error.code === 'auth/unauthorized-domain') {
+                    errorMessage = "Sign-in failed: Your app's domain is **NOT AUTHORIZED**. Please go to your **Firebase Console > Authentication > Settings > Authorized domains** and add the domain where this app is hosted.";
+                } else if (error.message.includes("popup-closed")) {
+                     errorMessage = "Sign-in failed: Popup closed by user.";
+                } else if (error.message.includes("auth/operation-not-allowed")) {
+                     errorMessage = "Sign-in failed: Google Sign-in is not enabled in your Firebase Console > Authentication > Sign-in method tab.";
+                }
+                
+                showMessage(errorMessage, true); // Pass true to indicate it's an error
+            }
+        }
+
+        async function handleSignOut() {
+            try {
+                await signOut(auth);
+                // Auth state listener (updateAuthState) will handle the UI changes
+            } catch (error) {
+                console.error("Sign-Out Error:", error);
+                showMessage("Failed to sign out.");
+            }
+        }
+
+        function updateAuthState(user) {
+            if (user && user.email.endsWith(FIREBASE_DOMAIN)) {
+                userId = user.uid;
+                userEmail = user.email;
+                userDisplayName = user.displayName || user.email.split('@')[0]; 
+                
+                // Update UI for logged-in user
+                userInfoDisplay.innerHTML = `
+                    <p class="text-sm font-medium text-gray-700">Logged in as:</p>
+                    <p class="text-base font-semibold text-indigo-600">${userDisplayName}</p>
+                    <code class="text-xs text-gray-500">${userEmail}</code>
+                `;
+                googleSigninBtn.classList.add("hidden");
+                signoutBtn.classList.remove("hidden");
+                appContentEl.classList.remove("hidden");
+                loadingEl.classList.add("hidden");
+                
+                // Initialize app content (only once)
+                if (!isAppListenersSetup) {
+                    setupAppListeners();
+                    isAppListenersSetup = true;
+                }
+                
+                // Set initial date which triggers data load
+                if (!weekStartDateInput.value) {
+                    const today = new Date();
+                    weekStartDateInput.value = toYYYYMMDD(today);
+                    // Trigger the date change logic immediately
+                    weekStartDateInput.dispatchEvent(new Event('change'));
+                }
+                
+                // Ensure resource listener is active
+                listenForResources();
+
+            } else {
+                // Handle non-approved domain or signed-out state
+                if (user) {
+                    // User is logged in but with wrong domain
+                    signOut(auth); // Force sign out
+                    showMessage(`Access denied: Only users from ${FIREBASE_DOMAIN} are allowed.`, true);
+                } else {
+                    // User is fully signed out
+                    // Only show this message if we're explicitly signing out, not on initial load
+                    // showMessage("Signed out successfully.", false); 
+                }
+
+                userId = null;
+                userEmail = null;
+                userDisplayName = null;
+                isAppListenersSetup = false; // Reset app setup
+                
+                userInfoDisplay.innerHTML = `
+                    <div class="text-sm font-medium text-red-500">Please sign in with your school account (${FIREBASE_DOMAIN}) to book.</div>
+                `;
+                googleSigninBtn.classList.remove("hidden");
+                signoutBtn.classList.add("hidden");
+                appContentEl.classList.add("hidden");
+                loadingEl.classList.add("hidden");
+                
+                // Clear state when signed out
+                unsubscribeResources();
+                unsubscribeBookings();
+                resources = [];
+                bookings = [];
+                allBookingsForWeek = [];
+                resourceSelect.innerHTML = `<option value="">Select a resource...</option>`;
+                calendarBody.innerHTML = "";
+            }
+        }
+
+        // --- Firebase & App Init ---
+
+        async function initialize() {
+            if (!firebaseConfig || !firebaseConfig.apiKey) {
+                console.error("Firebase configuration is missing.");
+                showMessage("Error: Firebase configuration is missing.", true);
+                loadingEl.innerHTML = '<p class="text-lg text-red-600">Error: Firebase configuration is missing.</p>';
+                return;
+            }
+            
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Set up the listener for auth state changes
+                onAuthStateChanged(auth, (user) => {
+                    updateAuthState(user);
+                });
+                
+            } catch (error) {
+                console.error("Firebase Init Error:", error);
+                showMessage("Failed to initialize database. Check console.");
+                loadingEl.innerHTML = '<p class="text-lg text-red-600">Failed to initialize database.</p>';
+            }
+        }
+
+        async function setupAppContent() {
+            // This is called automatically by setupAppListeners when user is confirmed.
+            try {
+                await seedInitialResources();
+                console.log("Initial resources seeded.");
+            } catch (error) {
+                console.error("Error during initial content setup:", error);
+            }
+        }
+
+        // --- Calendar/Date Logic ---
+
+        /**
+         * Sets up listeners for application features (only after successful authentication)
+         */
+        function setupAppListeners() {
+            console.log("Setting up app listeners...");
+            // Resource selection changes
+            resourceSelect.addEventListener("change", (e) => {
+                currentSelectedResourceId = e.target.value;
+                if (currentSelectedResourceId) {
+                    filterBookingsForCurrentResource();
+                    renderCalendar();
+                } else {
+                    bookings = []; // Clear bookings if no resource is selected
+                    renderCalendar();
+                }
+            });
+
+            // Week selection changes
+            weekStartDateInput.addEventListener("change", (e) => {
+                const selectedDate = new Date(e.target.value + 'T00:00:00'); 
+                const monday = getMonday(selectedDate);
+                currentSelectedWeekStart = toYYYYMMDD(monday);
+                
+                console.log("Week changed to:", currentSelectedWeekStart);
+                
+                DAYS.forEach((day, index) => {
+                    const dayDate = getDateForDay(currentSelectedWeekStart, index);
+                    document.getElementById(`header-${day}`).textContent = formatDayHeader(day, dayDate);
+                });
+                
+                listenForAllBookingsForWeek();
+            });
+            
+            // Admin Panel
+            document.getElementById("toggle-admin").addEventListener("click", () => {
+                document.getElementById("admin-panel").classList.toggle("hidden");
+            });
+            
+            document.getElementById("add-resource-btn").addEventListener("click", addResource);
+            
+            // Booking Modal
+            modalCancelBtn.addEventListener("click", () => {
+                bookingModal.classList.add("hidden");
+            });
+            document.getElementById("booking-form").addEventListener("submit", handleBookingSubmit);
+            
+            // Delete Modal
+            document.getElementById("delete-cancel-btn").addEventListener("click", () => deleteModal.classList.add("hidden"));
+            document.getElementById("delete-confirm-btn").addEventListener("click", handleDeleteBooking);
+            
+            // Success Modal
+            document.getElementById("success-close-btn").addEventListener("click", () => successModal.classList.add("hidden"));
+            addToCalendarBtn.addEventListener("click", handleAddToCalendarClick);
+
+            // Set up initial app content 
+            setupAppContent();
+        }
+
+        // --- Data Fetching (Firestore) ---
+
+        /**
+         * Adds the initial list of resources to Firestore if they don't exist.
+         */
+        async function seedInitialResources() {
+            try {
+                const batch = writeBatch(db);
+                let count = 0;
+                
+                // Use getDocs to check for existence of all initial resources efficiently
+                const existingDocs = await getDocs(query(collection(db, resourcesCollectionPath)));
+                const existingNames = new Set(existingDocs.docs.map(doc => doc.data().name));
+                const existingIds = new Set(existingDocs.docs.map(doc => doc.id));
+
+                for (const res of INITIAL_RESOURCES) {
+                    // Only add if both ID and Name don't already exist (to prevent duplicates)
+                    if (!existingNames.has(res.name) && !existingIds.has(res.id)) {
+                        const docRef = doc(db, resourcesCollectionPath, res.id);
+                        batch.set(docRef, { name: res.name });
+                        count++;
+                    }
+                }
+                
+                if (count > 0) {
+                    await batch.commit();
+                    console.log(`Added ${count} initial resources.`);
+                }
+            } catch (error) {
+                console.error("Error seeding resources:", error);
+                showMessage("Could not add initial resources.");
+            }
+        }
+        
+        /**
+         * Listens for real-time updates to the resources list.
+         */
+        function listenForResources() {
+            if (!userId) return; 
+            
+            unsubscribeResources(); // Unsubscribe from previous listener
+            console.log("Listening for resources...");
+            const q = query(collection(db, resourcesCollectionPath));
+            
+            unsubscribeResources = onSnapshot(q, (snapshot) => {
+                console.log("Received resource snapshot.");
+                resources = [];
+                let resourceListHtml = '';
+                
+                snapshot.forEach((doc) => {
+                    const resource = { id: doc.id, ...doc.data() };
+                    resources.push(resource);
+                    
+                    resourceListHtml += `
+                        <div class="flex justify-between items-center bg-white p-2 rounded shadow-sm">
+                            <span class="text-sm">${resource.name}</span>
+                            <button data-id="${resource.id}" class="delete-resource-btn text-red-500 hover:text-red-700 text-xs">Delete</button>
+                        </div>
+                    `;
+                });
+                
+                let currentVal = resourceSelect.value;
+                resourceSelect.innerHTML = `<option value="">Select a resource...</option>`;
+                resources.sort((a, b) => a.name.localeCompare(b.name));
+                
+                resources.forEach(res => {
+                    const selected = res.id === currentVal ? 'selected' : '';
+                    resourceSelect.innerHTML += `<option value="${res.id}" ${selected}>${res.name}</option>`;
+                });
+                
+                document.getElementById("resource-list").innerHTML = resourceListHtml;
+                document.querySelectorAll('.delete-resource-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => deleteResource(e.target.dataset.id));
+                });
+                
+            }, (error) => {
+                console.error("Error listening for resources:", error);
+                showMessage("Failed to load resources.");
+            });
+        }
+
+        /**
+         * Listens for all bookings for the selected week, regardless of resource.
+         */
+        function listenForAllBookingsForWeek() {
+            unsubscribeBookings();
+            
+            if (!currentSelectedWeekStart || !userId) {
+                console.log("Skipping booking listener: No week or user.");
+                renderCalendar();
+                return;
+            }
+            
+            console.log(`Listening for bookings for week: ${currentSelectedWeekStart}`);
+            
+            const q = query(
+                collection(db, bookingsCollectionPath),
+                where("weekStartDate", "==", currentSelectedWeekStart)
+            );
+
+            unsubscribeBookings = onSnapshot(q, (snapshot) => {
+                console.log("Received booking snapshot.");
+                allBookingsForWeek = [];
+                snapshot.forEach((doc) => {
+                    allBookingsForWeek.push({ id: doc.id, ...doc.data() });
+                });
+                filterBookingsForCurrentResource();
+                renderCalendar(); 
+            }, (error) => {
+                console.error("Error listening for all bookings:", error);
+                showMessage("Failed to load all bookings for the week.");
+            });
+        }
+
+        /**
+         * Filters the `allBookingsForWeek` list to populate the `bookings` list
+         * for the currently selected resource.
+         */
+        function filterBookingsForCurrentResource() {
+            if (!currentSelectedResourceId) {
+                bookings = [];
+                return;
+            }
+            bookings = allBookingsForWeek.filter(b => b.resourceId === currentSelectedResourceId);
+            console.log(`Filtered ${bookings.length} bookings for resource ${currentSelectedResourceId}`);
+        }
+
+        // --- UI Rendering ---
+
+        /**
+         * Opens the booking modal and populates it with details.
+         */
+        function openBookingModal(dataset) {
+            const { day, period, timeSlot, dayIndex } = dataset;
+            
+            const resource = resources.find(r => r.id === currentSelectedResourceId);
+            if (!resource) {
+                showMessage("Error: Resource not found.", true);
+                return;
+            }
+            
+            const date = getDateForDay(currentSelectedWeekStart, parseInt(dayIndex));
+            const dateString = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+            document.getElementById("modal-resource").textContent = resource.name;
+            document.getElementById("modal-datetime").textContent = `${dateString}, ${timeSlot}`;
+            
+            // Reset form
+            const form = document.getElementById("booking-form");
+            form.reset();
+            form.dataset.day = day;
+            form.dataset.period = period;
+            form.dataset.timeSlot = timeSlot;
+            form.dataset.dayIndex = dayIndex; // Store dayIndex for ICS file
+
+            bookingModal.classList.remove("hidden");
+            bookingModal.classList.add("flex");
+            bookedByInput.focus();
+        }
+        
+        /**
+         * Renders the main calendar grid based on current state.
+         */
+        function renderCalendar() {
+            calendarBody.innerHTML = ""; // Clear existing grid
+            console.log("Rendering calendar...");
+
+            if (!currentSelectedResourceId) {
+                calendarBody.innerHTML = `<div class="col-span-6 text-center p-10 text-gray-500">Please select a resource to see the schedule.</div>`;
+                return;
+            }
+
+            TIME_SLOTS.forEach((timeSlot, periodIndex) => {
+                // Time slot column
+                let rowHtml = `
+                    <div class="col-span-1 p-3 border-r border-b border-gray-200 text-xs font-medium text-gray-600 bg-gray-50 sticky left-0">
+                        ${timeSlot}
+                    </div>
+                `;
+
+                // Day columns
+                DAYS.forEach((day, dayIndex) => {
+                    const period = periodIndex + 1;
+                    const booking = bookings.find(b => b.day === day && b.period === period);
+                    
+                    if (booking) {
+                        // This slot is booked for the *current resource*
+                        const bookingUserDisplay = booking.bookedByInSlot || booking.bookedBy || (booking.bookedByEmail ? booking.bookedByEmail.split('@')[0] : 'Booked');
+
+                        // Find all other resources booked at this time
+                        const allBookedResourceIds = new Set(
+                            allBookingsForWeek
+                                .filter(b => b.day === day && b.period === period)
+                                .map(b => b.resourceId)
+                        );
+
+                        // Find resources that are NOT in the booked list
+                        const availableResources = resources
+                            .filter(r => !allBookedResourceIds.has(r.id))
+                            .map(r => r.name);
+
+                        let availableText = "Also available: " + (availableResources.length > 0 ? availableResources.join(', ') : "None");
+
+                        
+                        const canDelete = booking.bookedById === userId;
+                        const bgColor = canDelete ? 'bg-indigo-100 hover:bg-indigo-200' : 'bg-gray-100';
+                        const textColor = canDelete ? 'text-indigo-800' : 'text-gray-800';
+                        
+                        rowHtml += `
+                            <div 
+                                class="col-span-1 p-2 border-r border-b border-gray-200 ${bgColor} ${textColor} cursor-pointer flex flex-col items-center justify-center h-full text-center"
+                                data-booking-id="${booking.id}"
+                                title="Booked by ${booking.bookedBy} (${booking.bookedByEmail}). ${availableText}"
+                            >
+                                <p classD="font-bold text-sm leading-tight">${bookingUserDisplay}</p>
+                                <!-- Removed the extra line to reduce clutter -->
+                            </div>
+                        `;
+                    } else {
+                        // Slot is available for the *current resource*
+                        const otherBooking = allBookingsForWeek.find(
+                            b => b.day === day && 
+                                 b.period === period && 
+                                 b.resourceId !== currentSelectedResourceId
+                        );
+
+                        const isBusy = !!otherBooking; // Is another resource booked?
+
+                        rowHtml += `
+                            <div 
+                                class="col-span-1 p-2 border-r border-b border-gray-200 text-xs cursor-pointer hover:bg-green-50 transition-colors flex items-center justify-center text-center ${isBusy ? 'text-gray-400 bg-gray-50 hover:bg-gray-100' : 'text-green-600'}"
+                                data-day="${day}"
+                                data-period="${period}"
+                                data-time-slot="${timeSlot}"
+                                data-day-index="${dayIndex}"
+                                title="${isBusy ? 'This resource is free, but another is booked.' : 'Available for booking'}"
+                            >
+                                Available
+                            </div>
+                        `;
+                    }
+                });
+                
+                calendarBody.innerHTML += rowHtml;
+            });
+            
+            // Add event listeners to the new cells
+            calendarBody.querySelectorAll('div[data-booking-id]').forEach(cell => {
+                cell.addEventListener('click', (e) => openDeleteModal(e.currentTarget.dataset.bookingId));
+            });
+            calendarBody.querySelectorAll('div[data-day]').forEach(cell => {
+                cell.addEventListener('click', (e) => openBookingModal(e.currentTarget.dataset));
+            });
+        }
+
+        // --- Modal & Booking Logic ---
+
+        /**
+         * Generates and downloads an iCalendar (.ics) file for the booking.
+         */
+        function createICSFile(bookingData) {
+            const { resourceId, day, period, timeSlot, bookedBy, bookedByEmail, bookedByInSlot } = bookingData;
+            
+            console.log("Creating ICS file for:", bookingData);
+            
+            const resource = resources.find(r => r.id === resourceId);
+            const resourceName = resource?.name || "Resource";
+            
+            // Parse start time (e.g., "7:50")
+            const timeParts = timeSlot.split(' - ')[0].split(':');
+            const hour = parseInt(timeParts[0]);
+            const minute = parseInt(timeParts[1]);
+
+            const dayIndex = DAYS.indexOf(day);
+            if (dayIndex === -1) {
+                console.error("Invalid day for ICS:", day);
+                return;
+            }
+            
+            const date = getDateForDay(currentSelectedWeekStart, dayIndex);
+            date.setHours(hour, minute, 0, 0);
+            
+            const durationMinutes = TIME_SLOT_DURATIONS[period - 1] || 30;
+
+            const startTime = date;
+            const endTime = new Date(date.getTime() + durationMinutes * 60000);
+            
+            // Format for ICS (UTC)
+            const formatICSDate = (d) => {
+                return d.toISOString().replace(/-|:|\.\d+/g, '') + 'Z';
+            };
+            
+            // Use UTC time for the ICS file
+            const utcStartTime = new Date(startTime.getTime() - (startTime.getTimezoneOffset() * 60000));
+            const utcEndTime = new Date(endTime.getTime() - (endTime.getTimezoneOffset() * 60000));
+
+            const uid = Date.now().toString(36) + Math.random().toString(36).substring(2);
+
+            const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//School Booking System//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:${uid}@${window.location.hostname}
+DTSTAMP:${formatICSDate(new Date())}
+DTSTART:${formatICSDate(utcStartTime)}
+DTEND:${formatICSDate(utcEndTime)}
+SUMMARY:${bookedByInSlot} - ${resourceName}
+DESCRIPTION:Resource: ${resourceName}\\nPurpose: ${bookedByInSlot}\\nBooked By: ${bookedBy} (${bookedByEmail})
+LOCATION:${resourceName}
+END:VEVENT
+END:VCALENDAR`;
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Booking_${resourceName.replace(/[\s\(\)]/g, '_')}_${toYYYYMMDD(startTime)}.ics`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function handleAddToCalendarClick() {
+            if (lastCreatedBookingData) {
+                createICSFile(lastCreatedBookingData);
+            }
+            successModal.classList.add("hidden");
+        }
+        
+        /**
+         * Handles the submission of the booking form.
+         */
+        async function handleBookingSubmit(e) {
+            e.preventDefault();
+            const bookedByInSlot = bookedByInput.value.trim();
+            if (!bookedByInSlot) {
+                showMessage("Please enter a class or purpose.");
+                return;
+            }
+            
+            const { day, period, timeSlot } = e.target.dataset;
+            
+            const bookingData = {
+                resourceId: currentSelectedResourceId,
+                weekStartDate: currentSelectedWeekStart,
+                day: day,
+                period: parseInt(period),
+                timeSlot: timeSlot,
+                bookedByInSlot: bookedByInSlot, 
+                bookedBy: userDisplayName,      
+                bookedByEmail: userEmail,       
+                bookedById: userId,             
+                bookedAt: Timestamp.now()
+            };
+
+            // Check for conflict again right before submitting
+            const existingBooking = allBookingsForWeek.find(b => 
+                b.resourceId === bookingData.resourceId &&
+                b.day === bookingData.day &&
+                b.period === bookingData.period
+            );
+
+            if (existingBooking) {
+                showMessage("This slot has just been booked by someone else. Please refresh.");
+                return;
+            }
+            
+            // Disable button to prevent double booking
+            modalBookBtn.disabled = true;
+            modalBookBtn.textContent = "Booking...";
+
+            try {
+                // Store the booking data locally to generate the ICS file later
+                lastCreatedBookingData = bookingData; 
+
+                // Add the new booking document
+                await addDoc(collection(db, bookingsCollectionPath), bookingData);
+                
+                bookingModal.classList.add("hidden");
+                
+                // Show success modal
+                document.getElementById("success-message").textContent = `Your booking for ${resources.find(r => r.id === currentSelectedResourceId)?.name} on ${bookingData.day} at ${bookingData.timeSlot} is confirmed.`;
+                successModal.classList.remove("hidden");
+                successModal.classList.add("flex");
+
+            } catch (error) {
+                console.error("Error creating booking:", error);
+                showMessage("Failed to create booking.");
+            } finally {
+                // Re-enable button
+                modalBookBtn.disabled = false;
+                modalBookBtn.textContent = "Book";
+            }
+        }
+        
+        /**
+         * Opens the modal to confirm deleting a booking.
+         */
+        function openDeleteModal(bookingId) {
+            const booking = allBookingsForWeek.find(b => b.id === bookingId);
+            if (!booking) {
+                console.error("Booking not found for deletion:", bookingId);
+                return;
+            }
+
+            if (booking.bookedById !== userId) {
+                showMessage("You can only cancel bookings you made yourself.");
+                return;
+            }
+            
+            const resource = resources.find(r => r.id === booking.resourceId);
+            const date = getDateForDay(booking.weekStartDate, DAYS.indexOf(booking.day));
+            const dateString = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+            document.getElementById("delete-details").innerHTML = `
+                <p><strong>Resource:</strong> ${resource?.name || 'Unknown'}</p>
+                <p><strong>When:</strong> ${dateString}, ${booking.timeSlot}</p>
+                <p><strong>Purpose:</strong> ${booking.bookedByInSlot}</p>
+                <p class="text-xs text-gray-500">Booked by: ${booking.bookedBy}</p>
+            `;
+            
+            document.getElementById("delete-confirm-btn").dataset.bookingId = bookingId;
+            deleteModal.classList.remove("hidden");
+            deleteModal.classList.add("flex");
+        }
+        
+        /**
+         * Handles the actual deletion of a booking.
+         */
+        async function handleDeleteBooking(e) {
+            const bookingId = e.target.dataset.bookingId;
+            if (!bookingId) return;
+            
+            // Disable button
+            e.target.disabled = true;
+            e.target.textContent = "Cancelling...";
+
+            try {
+                await deleteDoc(doc(db, bookingsCollectionPath, bookingId));
+                showMessage("Booking cancelled.", false);
+                deleteModal.classList.add("hidden");
+            } catch (error) {
+                console.error("Error deleting booking:", error);
+                showMessage("Failed to cancel booking.");
+            } finally {
+                // Re-enable button
+                e.target.disabled = false;
+                e.target.textContent = "Yes, Cancel";
+            }
+        }
+        
+        // --- Admin Functions ---
+        async function addResource() {
+            const nameInput = document.getElementById("new-resource-name");
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                showMessage("Please enter a resource name.");
+                return;
+            }
+            
+            const addBtn = document.getElementById("add-resource-btn");
+            addBtn.disabled = true;
+            addBtn.textContent = "Adding...";
+
+            try {
+                // Check if a resource with this name already exists
+                const existing = resources.find(r => r.name.toLowerCase() === name.toLowerCase());
+                if (existing) {
+                    showMessage("A resource with this name already exists.", true);
+                    return;
+                }
+
+                await addDoc(collection(db, resourcesCollectionPath), {
+                    name: name
+                });
+                showMessage("Resource added successfully.", false);
+                nameInput.value = "";
+            } catch (error) {
+                console.error("Error adding resource:", error);
+                showMessage("Failed to add resource.");
+            } finally {
+                addBtn.disabled = false;
+                addBtn.textContent = "Add Resource";
+            }
+        }
+
+        async function deleteResource(resourceId) {
+            if (!resourceId) return;
+            
+            // Simple confirmation before deleting
+            if (!confirm("Are you sure you want to delete this resource? This will also delete ALL bookings associated with it, past and future. This cannot be undone.")) {
+                return;
+            }
+
+            console.log(`Deleting resource ${resourceId} and all associated bookings...`);
+
+            try {
+                // Find all bookings for this resource
+                const bookingsQuery = query(
+                    collection(db, bookingsCollectionPath), 
+                    where("resourceId", "==", resourceId)
+                );
+                const bookingsSnapshot = await getDocs(bookingsQuery);
+                
+                const batch = writeBatch(db);
+                
+                let deletedBookingsCount = 0;
+                bookingsSnapshot.forEach((doc) => {
+                    batch.delete(doc.ref);
+                    deletedBookingsCount++;
+                });
+                
+                // Delete the resource itself
+                const resourceRef = doc(db, resourcesCollectionPath, resourceId);
+                batch.delete(resourceRef);
+                
+                await batch.commit();
+                
+                showMessage(`Resource and ${deletedBookingsCount} associated bookings deleted.`, false);
+                
+                // If the deleted resource was selected, clear the selection
+                if (currentSelectedResourceId === resourceId) {
+                    resourceSelect.value = "";
+                    currentSelectedResourceId = null;
+                    filterBookingsForCurrentResource();
+                    renderCalendar();
+                }
+            } catch (error) {
+                console.error("Error deleting resource:", error);
+                showMessage("Failed to delete resource and its bookings.");
+            }
+        }
+
+        // --- Initial Setup and Event Attachments ---
+        // These MUST be attached before Firebase init completes so the sign-in button is responsive.
+        googleSigninBtn.addEventListener("click", handleGoogleSignIn);
+        signoutBtn.addEventListener("click", handleSignOut); 
+
+        // --- App Start ---
+        initialize();
+
+    </script>
+</body>
+</html>
